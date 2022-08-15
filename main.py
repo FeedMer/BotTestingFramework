@@ -23,7 +23,7 @@ logging.basicConfig(
 )
 
 
-async def shedule():
+async def schedule():
     test = ServiceFactory.get().test
     await test.init_client()
     run = test.client.run_until_disconnected()
@@ -54,7 +54,7 @@ metrics_app = make_wsgi_app()
 
 
 async def main():
-    await shedule()
+    await schedule()
 
 
 if __name__ == "__main__":
