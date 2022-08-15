@@ -1,4 +1,4 @@
-from main import metrics_app
+from .main import metrics_app
 
 
 def app(environ, start_fn):
