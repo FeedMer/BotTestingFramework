@@ -10,6 +10,7 @@ from pytz import timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
+from prometheus_client import start_http_server, Summary
 
 from config.constants import Constants
 from factory.service import ServiceFactory
@@ -50,6 +51,7 @@ async def shedule():
 
 
 async def main():
+    start_http_server(8080)
     await shedule()
 
 

@@ -7,6 +7,9 @@ from typing import List
 
 from telethon import events
 
+from prometheus_client import Histogram
+
+
 from service.telegram import TelegramService
 from config.constants import Constants
 from repository.response import ResponseRepository
@@ -21,7 +24,7 @@ async def wait():
 
 
 class TestService:
-    __slots__ = ["response_repository", "telegram_service", "account", "client", "respondent", "await_answers", "manager", "bot", "bot_client"]
+    __slots__ = ["response_repository", "telegram_service", "account", "client", "respondent", "await_answers", "histograms", "manager", "bot", "bot_client"]
 
     def __init__(self, telegram_service: TelegramService, response_repository: ResponseRepository, account: str, bot: str):
         self.telegram_service = telegram_service
@@ -33,6 +36,7 @@ class TestService:
         self.bot_client = None
 
         self.await_answers = {}
+        self.histograms = {}
         self.manager = None
 
     async def advance_scenario(self, awaited_answer, recipient):
@@ -62,15 +66,17 @@ class TestService:
                     awaited_answer = self.await_answers.pop(recipient)
                     scenario = awaited_answer["scenario"]
                     response_time = end - awaited_answer["timestamp"]
-                    logging.info(f'Time on response for {awaited_answer["name"]}: {response_time}')
-                    self.response_repository.save(Response(None, response_time, awaited_answer["name"]))
+                    name = awaited_answer["name"]
+                    self.histograms[name].observe(response_time)
+                    logging.info(f'Time on response for {name}: {response_time}')
+                    self.response_repository.save(Response(None, response_time, name))
                     if response_time > Constants.TEST_TIMEOUT:
                         await wait()
                         await self.telegram_service.send_message(
                             self.bot_client,
                             self.manager,
                             f'''
-Время отклика от бота {awaited_answer["name"]}
+Время отклика от бота {name}
 на сообщение {awaited_answer["message"]}: 
 {response_time:.2f} секунд
                             ''')
@@ -82,6 +88,8 @@ class TestService:
                 logging.info(exc)
 
     async def test_bot(self, scenario, name, recipient):
+        if name not in self.histograms:
+            self.histograms[name] = Histogram(f"{name}_request_latency_seconds", f"Latency between sendning a message and getting a response for {name}")
         start = {
             "name": name,
             "message": None,
