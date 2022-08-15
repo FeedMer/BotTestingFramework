@@ -10,6 +10,7 @@ from pytz import timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
+from prometheus_client import make_wsgi_app
 
 from config.constants import Constants
 from factory.service import ServiceFactory
@@ -22,7 +23,7 @@ logging.basicConfig(
 )
 
 
-async def shedule():
+async def schedule():
     test = ServiceFactory.get().test
     await test.init_client()
     run = test.client.run_until_disconnected()
@@ -50,7 +51,9 @@ async def shedule():
 
 
 async def main():
-    await shedule()
+    await schedule()
+
+metrics_app = make_wsgi_app()
 
 
 if __name__ == "__main__":
