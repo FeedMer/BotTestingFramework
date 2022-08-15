@@ -51,7 +51,7 @@ async def shedule():
 
 
 async def main():
-    start_http_server(8080)
+    start_http_server(80)
     await shedule()
 
 
