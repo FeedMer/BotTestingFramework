@@ -30,7 +30,8 @@ async def schedule():
     logging.debug("Preparing scheduling job")
     scheduler = AsyncIOScheduler()
     logging.debug("Starting schedule")
-    interval = IntervalTrigger(minutes=5)
+    test_interval = IntervalTrigger(seconds=Constants.TEST_INTERVAL)
+    cleanup_interval = IntervalTrigger(seconds=Constants.CLEANUP_INTERVAL)
     cron_stat = CronTrigger(hour=21, timezone=timezone("Europe/Samara"))
     with open("resources/scenarios.json", "rb") as f:
         data = json.load(f)
@@ -40,11 +41,11 @@ async def schedule():
             recipient = await test.client.get_entity(entry["recipient"])
             scheduler.add_job(
                 test.test_bot,
-                interval,
+                test_interval,
                 next_run_time=datetime.now(),
                 args=(entry["scenario"], entry["recipient"], recipient)
             )
-    scheduler.add_job(test.start_cleanup, interval)
+    scheduler.add_job(test.start_cleanup, cleanup_interval)
     scheduler.add_job(test.send_statistics, cron_stat)
     scheduler.start()
     await run

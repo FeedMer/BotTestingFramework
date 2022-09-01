@@ -16,7 +16,7 @@ from repository.response import ResponseRepository
 from entity.response import Response
 
 WAIT_MIN = 20
-WAIT_MAX = 90
+WAIT_MAX = 60
 
 
 async def wait():
