@@ -16,7 +16,6 @@ from config.constants import Constants
 from factory.service import ServiceFactory
 
 logging.basicConfig(
-    filename="tests.log",
     format='%(asctime)s:%(levelname)s:%(message)s',
     encoding='utf-8',
     level=logging.INFO
