@@ -10,7 +10,7 @@ from pytz import timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
-from prometheus_client import make_wsgi_app
+from prometheus_client import start_http_server
 
 from config.constants import Constants
 from factory.service import ServiceFactory
@@ -51,10 +51,8 @@ async def schedule():
     await run
 
 
-metrics_app = make_wsgi_app()
-
-
 async def main():
+    start_http_server(8080)
     await schedule()
 
 
