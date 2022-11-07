@@ -47,7 +47,8 @@ class TestService:
             "name": awaited_answer["name"],
             "message": message,
             "timestamp": time(),
-            "scenario": scenario[1:]
+            "scenario": scenario[1:],
+            "erred": False
         }
         await self.telegram_service.send_message(self.client, recipient, message)
 
@@ -94,25 +95,40 @@ class TestService:
             "name": name,
             "message": None,
             "timestamp": time(),
-            "scenario": scenario
+            "scenario": scenario,
+            "erred": False
         }
-        await self.advance_scenario(start, recipient.id)
+        if recipient.id not in self.await_answers:
+            await self.advance_scenario(start, recipient.id)
 
     async def start_cleanup(self):
         for recipient in self.await_answers:
             response_time = time() - self.await_answers[recipient]["timestamp"]
             if response_time > Constants.ERROR_TIMEOUT:
+                awaited_answer = self.await_answers[recipient]
                 wait_task = wait()
-                self.response_repository.save(Response(None, None, self.await_answers[recipient]["name"]))
-                await wait_task
-                await self.telegram_service.send_message(
-                    self.bot_client,
-                    self.manager,
-                    f'''
-Бот {self.await_answers[recipient]["name"]} не откликнулся 
-на сообщение {self.await_answers[recipient]["message"]}: 
-за {response_time:.2f} секунд
-                    ''')
+                self.response_repository.save(Response(None, None, awaited_answer["name"]))
+                if not awaited_answer["erred"]:
+                    awaited_answer["erred"] = True
+                    await wait_task
+                    await self.telegram_service.send_message(
+                        self.bot_client,
+                        self.manager,
+                        f'''
+    Бот {awaited_answer["name"]} не откликнулся 
+    на сообщение {awaited_answer["message"]} за 
+    {response_time:.2f} секунд
+                        ''')
+                else:
+                    await wait_task
+                    await self.telegram_service.send_message(
+                        self.bot_client,
+                        self.manager,
+                        f'''
+    Бот {awaited_answer["name"]} продолжает не откликаться 
+    на сообщение {awaited_answer["message"]}: 
+    {response_time:.2f} секунд
+                        ''')
 
     async def send_statistics(self):
         statistics = self.response_repository.statistics()
