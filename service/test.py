@@ -102,7 +102,8 @@ class TestService:
             await self.advance_scenario(start, recipient.id)
 
     async def start_cleanup(self):
-        for recipient in self.await_answers:
+        answers_to_clean = self.await_answers.copy()
+        for recipient in answers_to_clean:
             response_time = time() - self.await_answers[recipient]["timestamp"]
             if response_time > Constants.ERROR_TIMEOUT:
                 awaited_answer = self.await_answers[recipient]
@@ -115,9 +116,9 @@ class TestService:
                         self.bot_client,
                         self.manager,
                         f'''
-    Бот {awaited_answer["name"]} не откликнулся 
-    на сообщение {awaited_answer["message"]} за 
-    {response_time:.2f} секунд
+Бот {awaited_answer["name"]} не откликнулся 
+на сообщение {awaited_answer["message"]} за 
+{response_time:.2f} секунд
                         ''')
                 else:
                     await wait_task
@@ -125,9 +126,9 @@ class TestService:
                         self.bot_client,
                         self.manager,
                         f'''
-    Бот {awaited_answer["name"]} продолжает не откликаться 
-    на сообщение {awaited_answer["message"]}: 
-    {response_time:.2f} секунд
+Бот {awaited_answer["name"]} продолжает не откликаться 
+на сообщение {awaited_answer["message"]}: 
+{response_time:.2f} секунд
                         ''')
 
     async def send_statistics(self):
