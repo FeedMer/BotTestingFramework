@@ -52,6 +52,12 @@ class TestService:
         }
         await self.telegram_service.send_message(self.client, recipient, message)
 
+    async def repeat_message(self, awaited_answer, recipient):
+        await wait()
+        scenario = awaited_answer["scenario"]
+        message = scenario[0]
+        await self.telegram_service.send_message(self.client, recipient, message)
+
     # async fuckery because fuck python
     async def init_client(self):
         self.client = await self.telegram_service.login(self.account)
@@ -100,6 +106,8 @@ class TestService:
         }
         if recipient.id not in self.await_answers:
             await self.advance_scenario(start, recipient.id)
+        else:
+            await self.repeat_message(self.await_answers[recipient.id], recipient.id)
 
     async def start_cleanup(self):
         answers_to_clean = self.await_answers.copy()
