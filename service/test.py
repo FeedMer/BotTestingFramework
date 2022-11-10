@@ -52,10 +52,8 @@ class TestService:
         }
         await self.telegram_service.send_message(self.client, recipient, message)
 
-    async def repeat_message(self, awaited_answer, recipient):
+    async def repeat_message(self, message, recipient):
         await wait()
-        scenario = awaited_answer["scenario"]
-        message = scenario[0]
         await self.telegram_service.send_message(self.client, recipient, message)
 
     # async fuckery because fuck python
@@ -97,17 +95,19 @@ class TestService:
     async def test_bot(self, scenario, name, recipient):
         if name not in self.histograms:
             self.histograms[name] = Histogram(f"{name}_request_latency_seconds", f"Latency between sendning a message and getting a response for {name}")
-        start = {
-            "name": name,
-            "message": None,
-            "timestamp": time(),
-            "scenario": scenario,
-            "erred": False
-        }
         if recipient.id not in self.await_answers:
+            start = {
+                "name": name,
+                "message": None,
+                "timestamp": time(),
+                "scenario": scenario,
+                "erred": False
+            }
             await self.advance_scenario(start, recipient.id)
         else:
-            await self.repeat_message(self.await_answers[recipient.id], recipient.id)
+            start = self.await_answers[recipient.id]
+            message = start["message"]
+            await self.repeat_message(message, recipient.id)
 
     async def start_cleanup(self):
         answers_to_clean = self.await_answers.copy()
