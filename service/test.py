@@ -106,6 +106,7 @@ class TestService:
             await self.advance_scenario(start, recipient.id)
         elif self.await_answers[recipient.id]["erred"]:
             start = self.await_answers[recipient.id]
+            logging.info(f'Resending message {start["message"]} to {start["name"]}')
             message = start["message"]
             await self.repeat_message(message, recipient.id)
 
