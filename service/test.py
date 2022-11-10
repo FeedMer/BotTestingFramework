@@ -112,33 +112,36 @@ class TestService:
 
     async def start_cleanup(self):
         answers_to_clean = self.await_answers.copy()
+        messages = []
         for recipient in answers_to_clean:
             response_time = time() - self.await_answers[recipient]["timestamp"]
             if response_time > Constants.ERROR_TIMEOUT:
                 awaited_answer = self.await_answers[recipient]
-                wait_task = wait()
                 self.response_repository.save(Response(None, None, awaited_answer["name"]))
                 if not awaited_answer["erred"]:
                     awaited_answer["erred"] = True
-                    await wait_task
-                    await self.telegram_service.send_message(
-                        self.bot_client,
-                        self.manager,
+                    messages.append(
                         f'''
 Бот {awaited_answer["name"]} не откликнулся 
 на сообщение {awaited_answer["message"]} за 
 {response_time:.2f} секунд
-                        ''')
+                        '''
+                    )
                 else:
-                    await wait_task
-                    await self.telegram_service.send_message(
-                        self.bot_client,
-                        self.manager,
+                    messages.append(
                         f'''
 Бот {awaited_answer["name"]} продолжает не откликаться 
 на сообщение {awaited_answer["message"]}: 
 {response_time:.2f} секунд
-                        ''')
+                        '''
+
+                    )
+        if len(messages) > 0:
+            await wait()
+            await self.telegram_service.send_message(
+                self.bot_client,
+                self.manager,
+                '\n'.join(messages))
 
     async def send_statistics(self):
         statistics = self.response_repository.statistics()
