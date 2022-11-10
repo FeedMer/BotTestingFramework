@@ -134,9 +134,9 @@ class TestService:
 на сообщение {awaited_answer["message"]}: 
 {response_time:.2f} секунд
                         '''
-
                     )
         if len(messages) > 0:
+            logging.warning("Sending alerts")
             await wait()
             await self.telegram_service.send_message(
                 self.bot_client,
