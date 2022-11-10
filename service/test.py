@@ -104,7 +104,7 @@ class TestService:
                 "erred": False
             }
             await self.advance_scenario(start, recipient.id)
-        else:
+        elif self.await_answers[recipient.id]["erred"]:
             start = self.await_answers[recipient.id]
             message = start["message"]
             await self.repeat_message(message, recipient.id)
