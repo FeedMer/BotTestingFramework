@@ -40,6 +40,7 @@ async def schedule():
         scenario = data["scenario"]
         logging.info(f"Manager chat id :{test.manager.id}")
         for api_key in bots.get_api_keys():
+            await asyncio.sleep(60)
             recipient = await telegram.get_bot_address(api_key)
             name = recipient.username
             scheduler.add_job(
