@@ -33,6 +33,6 @@ class TelegramService:
 
     async def get_bot_address(self, api: str):
         client = await self.login_bot(api)
-        input_peer = await client.get_me(input_peer=True)
+        input_peer = await client.get_me()
         await client.log_out()
         return input_peer
