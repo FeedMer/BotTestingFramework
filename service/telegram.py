@@ -1,4 +1,5 @@
 import logging
+import uuid
 import time
 import random
 
@@ -22,7 +23,7 @@ class TelegramService:
         return client
 
     async def login_bot(self, api: str):
-        client = telegram_factory.telegram_client("testBot")
+        client = telegram_factory.telegram_client(str(hex(hash(api))))
         me = await client.start(bot_token=api)
         logging.debug(f"Logged in: {me}")
         return client
