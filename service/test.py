@@ -53,8 +53,8 @@ class TestService:
         try:
             await self.telegram_service.send_message(self.client, recipient, message)
         except ValueError as exc:
-            logging.debug(exc)
-            logging.debug(f"Could not find PeerUser for {recipient}:{awaited_answer['name']}")
+            logging.warning(exc)
+            logging.warning(f"Could not find PeerUser for {recipient}:{awaited_answer['name']}")
             del self.await_answers[recipient]
 
     async def repeat_message(self, message, recipient):
