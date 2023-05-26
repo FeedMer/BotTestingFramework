@@ -34,6 +34,5 @@ class TelegramService:
     async def get_bot_address(self, api: str):
         client = await self.login_bot(api)
         bot = await client.get_me()
-        input_peer = await client.get_input_entity(bot)
         await client.log_out()
-        return bot, input_peer
+        return bot
