@@ -24,6 +24,8 @@ logging.basicConfig(
 
 async def schedule():
     test = ServiceFactory.get().test
+    bots = ServiceFactory.get().bot
+    telegram = ServiceFactory.get().telegram
     await test.init_client()
     run = test.client.run_until_disconnected()
     logging.debug("Preparing scheduling job")
@@ -35,14 +37,16 @@ async def schedule():
     with open("resources/scenarios.json", "rb") as f:
         data = json.load(f)
         test.manager = await test.bot_client.get_entity(data["manager"])
+        scenario = data["scenario"]
         logging.info(f"Manager chat id :{test.manager.id}")
-        for entry in data["scenarios"]:
-            recipient = await test.client.get_entity(entry["recipient"])
+        for api_key in bots.get_api_keys():
+            recipient = await telegram.get_bot_address(api_key)
+            name = recipient.username
             scheduler.add_job(
                 test.test_bot,
                 test_interval,
                 next_run_time=datetime.now(),
-                args=(entry["scenario"], entry["recipient"], recipient)
+                args=(scenario, name, recipient)
             )
     scheduler.add_job(test.start_cleanup, cleanup_interval)
     scheduler.add_job(test.send_statistics, cron_stat)
