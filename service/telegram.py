@@ -3,6 +3,8 @@ import uuid
 import time
 import random
 
+from telethon import hints
+
 import factory.telegram as telegram_factory
 from service.phone import PhoneService
 
@@ -31,8 +33,8 @@ class TelegramService:
     async def send_message(self, client, recipient: str, text: str):
         await client.send_message(recipient, text)
 
-    async def get_bot_address(self, api: str):
+    async def get_bot_address(self, api: str) -> hints.Entity:
         client = await self.login_bot(api)
         bot = await client.get_me()
         await client.log_out()
-        return await client.get_entity(bot.username)
+        return bot.username
