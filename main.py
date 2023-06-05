@@ -34,6 +34,9 @@ async def schedule():
     test_interval = IntervalTrigger(seconds=Constants.TEST_INTERVAL)
     cleanup_interval = IntervalTrigger(seconds=Constants.CLEANUP_INTERVAL)
     cron_stat = CronTrigger(hour=21, timezone=timezone("Europe/Samara"))
+    scheduler.add_job(test.start_cleanup, cleanup_interval)
+    scheduler.add_job(test.send_statistics, cron_stat)
+    scheduler.start()
     with open("resources/scenarios.json", "rb") as f:
         data = json.load(f)
         test.manager = await test.bot_client.get_entity(data["manager"])
@@ -49,9 +52,6 @@ async def schedule():
                 next_run_time=datetime.now(),
                 args=(scenario, name, bot)
             )
-    scheduler.add_job(test.start_cleanup, cleanup_interval)
-    scheduler.add_job(test.send_statistics, cron_stat)
-    scheduler.start()
     await run
 
 
