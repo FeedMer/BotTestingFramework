@@ -16,8 +16,8 @@ from config.constants import Constants
 from repository.response import ResponseRepository
 from entity.response import Response
 
-WAIT_MIN = 20
-WAIT_MAX = 60
+WAIT_MIN = 40
+WAIT_MAX = 120
 
 
 async def wait():
