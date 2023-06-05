@@ -35,4 +35,4 @@ class TelegramService:
         client = await self.login_bot(api)
         bot = await client.get_me()
         await client.log_out()
-        return bot
+        return await client.get_entity(bot.username)

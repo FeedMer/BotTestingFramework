@@ -98,7 +98,7 @@ class TestService:
             except Exception as exc:
                 logging.info(exc)
 
-    async def test_bot(self, scenario, name, recipient: hints.Entity):
+    async def test_bot(self, scenario: List[str], name: str, recipient: hints.Entity):
         if name not in self.histograms:
             self.histograms[name] = Histogram(f"{name}_request_latency_seconds", f"Latency between sendning a message and getting a response for {name}")
         if recipient.id not in self.await_answers:
