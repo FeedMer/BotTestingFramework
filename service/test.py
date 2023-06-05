@@ -101,7 +101,7 @@ class TestService:
     async def test_bot(self, scenario, name, recipient: hints.Entity):
         if name not in self.histograms:
             self.histograms[name] = Histogram(f"{name}_request_latency_seconds", f"Latency between sendning a message and getting a response for {name}")
-        if recipient.username not in self.await_answers:
+        if recipient.id not in self.await_answers:
             start = {
                 "name": name,
                 "message": None,
@@ -109,12 +109,12 @@ class TestService:
                 "scenario": scenario,
                 "erred": False
             }
-            await self.advance_scenario(start, recipient.username)
-        elif self.await_answers[recipient.username]["erred"]:
-            start = self.await_answers[recipient.username]
+            await self.advance_scenario(start, recipient.id)
+        elif self.await_answers[recipient.id]["erred"]:
+            start = self.await_answers[recipient.id]
             logging.info(f'Resending message {start["message"]} to {start["name"]}')
             message = start["message"]
-            await self.repeat_message(message, recipient.username)
+            await self.repeat_message(message, recipient.id)
 
     async def start_cleanup(self):
         answers_to_clean = self.await_answers.copy()
