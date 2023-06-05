@@ -45,7 +45,7 @@ async def schedule():
         for api_key in bots.get_api_keys():
             await asyncio.sleep(30)
             bot = await telegram.get_bot_name(api_key)
-            name = bot.name
+            name = bot.username
             scheduler.add_job(
                 test.test_bot,
                 test_interval,
