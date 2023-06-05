@@ -33,8 +33,8 @@ class TelegramService:
     async def send_message(self, client, recipient: str, text: str):
         await client.send_message(recipient, text)
 
-    async def get_bot_name(self, api: str) -> str:
+    async def get_bot_name(self, api: str) -> hints.Entity:
         client = await self.login_bot(api)
         bot = await client.get_me()
         await client.log_out()
-        return bot.username
+        return bot
