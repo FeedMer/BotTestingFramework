@@ -35,6 +35,6 @@ class TelegramService:
 
     async def get_bot_name(self, api: str) -> hints.Entity:
         client = await self.login_bot(api)
-        bot = await client.get_me()
+        bot = await client.get_me(input_peer=True)
         await client.log_out()
         return bot

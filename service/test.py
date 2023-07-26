@@ -72,7 +72,7 @@ class TestService:
         async def handler(event):
             end = time()
             try:
-                recipient = event.message.peer_id.user_id
+                recipient = event.message.input_sender
                 if recipient in self.await_answers:
                     awaited_answer = self.await_answers.pop(recipient)
                     scenario = awaited_answer["scenario"]
@@ -101,7 +101,7 @@ class TestService:
     async def test_bot(self, scenario: List[str], name: str, recipient: hints.Entity):
         if name not in self.histograms:
             self.histograms[name] = Histogram(f"{name}_request_latency_seconds", f"Latency between sendning a message and getting a response for {name}")
-        if recipient.id not in self.await_answers:
+        if recipient not in self.await_answers:
             start = {
                 "name": name,
                 "message": None,
@@ -109,12 +109,12 @@ class TestService:
                 "scenario": scenario,
                 "erred": False
             }
-            await self.advance_scenario(start, recipient.id)
-        elif self.await_answers[recipient.id]["erred"]:
-            start = self.await_answers[recipient.id]
+            await self.advance_scenario(start, recipient)
+        elif self.await_answers[recipient]["erred"]:
+            start = self.await_answers[recipient]
             logging.info(f'Resending message {start["message"]} to {start["name"]}')
             message = start["message"]
-            await self.repeat_message(message, recipient.id)
+            await self.repeat_message(message, recipient)
 
     async def start_cleanup(self):
         answers_to_clean = self.await_answers.copy()
