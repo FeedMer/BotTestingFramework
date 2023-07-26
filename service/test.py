@@ -5,6 +5,7 @@ import random
 from time import time
 from typing import List
 
+import telethon.types
 from telethon import events
 from telethon import hints
 
@@ -44,7 +45,7 @@ class TestService:
         await wait()
         scenario = awaited_answer["scenario"]
         message = scenario[0]
-        self.await_answers[recipient] = {
+        self.await_answers[recipient.user_id] = {
             "name": awaited_answer["name"],
             "message": message,
             "timestamp": time(),
@@ -72,9 +73,9 @@ class TestService:
         async def handler(event):
             end = time()
             try:
-                recipient = event.message.input_sender
-                if recipient in self.await_answers:
-                    awaited_answer = self.await_answers.pop(recipient)
+                recipient_id = event.message.input_sender.user_id
+                if recipient_id in self.await_answers:
+                    awaited_answer = self.await_answers.pop(recipient_id)
                     scenario = awaited_answer["scenario"]
                     response_time = end - awaited_answer["timestamp"]
                     name = awaited_answer["name"]
@@ -92,26 +93,28 @@ class TestService:
 {response_time:.2f} секунд
                             ''')
                     if len(scenario) > 0:
+                        recipient = awaited_answer["entity"]
                         await self.advance_scenario(awaited_answer, recipient)
                     else:
-                        self.await_answers.pop(recipient)
+                        self.await_answers.pop(recipient_id)
             except Exception as exc:
                 logging.info(exc)
 
-    async def test_bot(self, scenario: List[str], name: str, recipient: hints.Entity):
+    async def test_bot(self, scenario: List[str], name: str, recipient: telethon.types.InputPeerUser):
         if name not in self.histograms:
             self.histograms[name] = Histogram(f"{name}_request_latency_seconds", f"Latency between sendning a message and getting a response for {name}")
-        if recipient not in self.await_answers:
+        if recipient.user_id not in self.await_answers:
             start = {
                 "name": name,
                 "message": None,
                 "timestamp": time(),
                 "scenario": scenario,
-                "erred": False
+                "erred": False,
+                "entity": recipient
             }
             await self.advance_scenario(start, recipient)
-        elif self.await_answers[recipient]["erred"]:
-            start = self.await_answers[recipient]
+        elif self.await_answers[recipient.user_id]["erred"]:
+            start = self.await_answers[recipient.user_id]
             logging.info(f'Resending message {start["message"]} to {start["name"]}')
             message = start["message"]
             await self.repeat_message(message, recipient)
