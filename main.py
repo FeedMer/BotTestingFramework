@@ -50,7 +50,7 @@ async def schedule():
                 test.test_bot,
                 test_interval,
                 next_run_time=datetime.now(),
-                args=(scenario, name, await test.bot_client.get_input_entity(bot))
+                args=(scenario, name, await test.bot_client.get_input_entity(bot.id))
             )
     await run
 
