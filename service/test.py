@@ -154,24 +154,32 @@ class TestService:
 
     async def send_statistics(self):
         statistics = self.response_repository.statistics()
+        message = []
         for bot in statistics:
+            text = f'''
+Среднее время отклика {bot["name"]}: {bot["average"]:.2f} за {bot["total"]} запросов из них: 
+{bot["first_bucket"]}% меньше 1 секунды, 
+{bot["second_bucket"]}% от 1 до 5 секунд, 
+{bot["third_bucket"]}% больше 5 секунд
+                '''.strip()
+            message.append(text)
+            if len(message) > 2000:
+                await wait()
+                await self.telegram_service.send_message(
+                    self.bot_client,
+                    self.manager,
+                    '\n'.join(message)
+                    )
+                message = []
+        if message:
             await wait()
             await self.telegram_service.send_message(
                 self.bot_client,
                 self.manager,
-                f'''
-Статистика по {bot["name"]}:
-Среднее время отклика: {bot["average"]:.2f}
-Отклонение времени отклика: {bot["deviation"]:.2f}
-Всего сделано запросов сегодня: {bot["total"]}
-Из них:
-<1 секунды отклика: {bot["first_bucket"]}%
-от 1 до 2 секунд отклика: {bot["second_bucket"]}%
-от 2 до 3 секунд отклика: {bot["third_bucket"]}%
-от 3 до 4 секунд отклика: {bot["fourth_bucket"]}%
-от 4 до 5 секунд отклика: {bot["fifth_bucket"]}%
->5 секунд отклика: {bot["sixth_bucket"]}%
-                ''')
+                '\n'.join(message)
+                )
+
+
 
 
 
