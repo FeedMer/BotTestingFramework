@@ -1,16 +1,14 @@
 import asyncio
-import json
 import logging
 import random
 from time import time
 from typing import List
 
 import telethon.types
+from sqlalchemy.exc import SQLAlchemyError
 from telethon import events
-from telethon import hints
 
 from prometheus_client import Histogram
-
 
 from service.telegram import TelegramService
 from config.constants import Constants
@@ -26,9 +24,11 @@ async def wait():
 
 
 class TestService:
-    __slots__ = ["response_repository", "telegram_service", "account", "client", "respondent", "await_answers", "histograms", "manager", "bot", "bot_client"]
+    __slots__ = ["response_repository", "telegram_service", "account", "client", "respondent", "await_answers",
+                 "histograms", "manager", "bot", "bot_client"]
 
-    def __init__(self, telegram_service: TelegramService, response_repository: ResponseRepository, account: str, bot: str):
+    def __init__(self, telegram_service: TelegramService, response_repository: ResponseRepository, account: str,
+                 bot: str):
         self.telegram_service = telegram_service
         self.response_repository = response_repository
 
@@ -58,12 +58,33 @@ class TestService:
             logging.warning(exc)
             logging.warning(f"Could not find PeerUser for {recipient}:{awaited_answer['name']}")
             del self.await_answers[recipient]
+            await self.send_alert(
+                f"Не нашел бота для {recipient}:{awaited_answer['name']}",
+                important=True
+            )
 
     async def repeat_message(self, message, recipient):
         await wait()
         await self.telegram_service.send_message(self.client, recipient, message)
 
-    # async fuckery because fuck python
+    async def send_alert(self, message, important=False):
+        if not important:
+            await wait()
+
+        await self.telegram_service.send_message(
+            self.bot_client,
+            self.manager,
+            message)
+
+    async def save(self, response_time, name):
+        try:
+            self.response_repository.save(Response(None, response_time, name))
+        except SQLAlchemyError as exc:
+            await self.send_alert(
+                f"Не удалось сохранить ответ для бота {name} в базу данных. Ошибка {str(exc)}.",
+                important=True
+            )
+
     async def init_client(self):
         self.client = await self.telegram_service.login(self.account)
         logging.debug(f"API KEY for bot: {self.bot}")
@@ -80,18 +101,17 @@ class TestService:
                     response_time = end - awaited_answer["timestamp"]
                     name = awaited_answer["name"]
                     self.histograms[name].observe(response_time)
+
+                    await self.save(response_time, name)
                     logging.info(f'Time on response for {name}: {response_time}')
-                    self.response_repository.save(Response(None, response_time, name))
+
                     if response_time > Constants.TEST_TIMEOUT:
-                        await wait()
-                        await self.telegram_service.send_message(
-                            self.bot_client,
-                            self.manager,
-                            f'''
-Время отклика от бота {name}
-на сообщение {awaited_answer["message"]}: 
-{response_time:.2f} секунд
-                            ''')
+                        await self.send_alert(f'''
+                            Время отклика от бота {name}
+                            на сообщение {awaited_answer["message"]}: 
+                            {response_time:.2f} секунд
+                        ''')
+
                     if len(scenario) > 0:
                         recipient = awaited_answer["entity"]
                         await self.advance_scenario(awaited_answer, recipient)
@@ -102,7 +122,8 @@ class TestService:
 
     async def test_bot(self, scenario: List[str], name: str, recipient: telethon.types.InputPeerUser):
         if name not in self.histograms:
-            self.histograms[name] = Histogram(f"{name}_request_latency_seconds", f"Latency between sendning a message and getting a response for {name}")
+            self.histograms[name] = Histogram(f"{name}_request_latency_seconds",
+                                              f"Latency between sendning a message and getting a response for {name}")
         if recipient.user_id not in self.await_answers:
             start = {
                 "name": name,
@@ -126,7 +147,7 @@ class TestService:
             response_time = time() - self.await_answers[recipient]["timestamp"]
             if response_time > Constants.ERROR_TIMEOUT:
                 awaited_answer = self.await_answers[recipient]
-                self.response_repository.save(Response(None, None, awaited_answer["name"]))
+                await self.save(None, awaited_answer["name"])
                 if not awaited_answer["erred"]:
                     awaited_answer["erred"] = True
                     messages.append(
@@ -146,11 +167,9 @@ class TestService:
                     )
         if len(messages) > 0:
             logging.warning("Sending alerts")
-            await wait()
-            await self.telegram_service.send_message(
-                self.bot_client,
-                self.manager,
-                '\n'.join(messages))
+            await self.send_alert(
+                '\n'.join(messages)
+            )
 
     async def send_statistics(self):
         statistics = self.response_repository.statistics()
@@ -158,29 +177,13 @@ class TestService:
         for bot in statistics:
             text = f'''
 Среднее время отклика {bot["name"]}: {bot["average"]:.2f} за {bot["total"]} запросов из них: 
-{bot["first_bucket"]}% меньше 1 секунды, 
+{bot["first_bucket"]}% <1 секунды, 
 {bot["second_bucket"]}% от 1 до 5 секунд, 
-{bot["third_bucket"]}% больше 5 секунд
+{bot["third_bucket"]}% >5 секунд
                 '''.strip()
             message.append(text)
-            if len(message) > 2000:
-                await wait()
-                await self.telegram_service.send_message(
-                    self.bot_client,
-                    self.manager,
-                    '\n'.join(message)
-                    )
+            if sum(map(len, message)) > 2000:
+                await self.send_alert('\n'.join(message))
                 message = []
         if message:
-            await wait()
-            await self.telegram_service.send_message(
-                self.bot_client,
-                self.manager,
-                '\n'.join(message)
-                )
-
-
-
-
-
-
+            await self.send_alert('\n'.join(message))
