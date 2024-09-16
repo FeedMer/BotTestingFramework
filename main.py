@@ -46,13 +46,10 @@ async def schedule():
             await asyncio.sleep(3)
             bot = await telegram.get_bot_name(api_key)
             name = bot.username
-            scheduler.add_job(
-                test.test_bot,
-                test_interval,
-                next_run_time=datetime.now(),
-                args=(scenario, name, await test.client.get_input_entity(name))
+            test.add_scenario(
+                scenario, name, await test.client.get_input_entity(name)
             )
-    await run
+    await asyncio.gather(run, test.start())
 
 
 async def main():

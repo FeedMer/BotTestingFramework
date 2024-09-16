@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import random
+from dataclasses import dataclass
 from time import time
-from typing import List
+from typing import List, Optional, Dict
 
 import telethon.types
 from sqlalchemy.exc import SQLAlchemyError
@@ -18,14 +19,61 @@ from entity.response import Response
 WAIT_MIN = 40
 WAIT_MAX = 120
 
+TIMEOUT_ALERT = '''
+Время отклика от бота {name}
+на сообщение {message}: 
+{response_time:.2f} секунд
+'''
+
+
+ERROR_ALERT = '''
+Бот {name} не откликнулся 
+на сообщение {message} за 
+{response_time:.2f} секунд
+'''
+
+ERROR_CONTINUE_ALERT = '''
+Бот {name} продолжает не откликаться 
+на сообщение {message} за 
+{response_time:.2f} секунд
+'''
+
+STATISTICS_TEMPLATE = '''
+Среднее время отклика {name}: {average:.2f} за {total} запросов из них: 
+{first_bucket}% <1 секунды, 
+{second_bucket}% от 1 до 5 секунд, 
+{third_bucket}% >5 секунд
+'''
+
+
+@dataclass
+class Scenario:
+    name: str
+    message: Optional[str]
+    timestamp: float
+    next_messages: List[str]
+    erred: bool
+    entity: telethon.types.InputPeerUser
+
+    @classmethod
+    def create(cls, name: str, scenario: List[str], entity: telethon.types.InputPeerUser):
+        return cls(
+            name=name,
+            message=None,
+            timestamp=time(),
+            next_messages=scenario,
+            erred=False,
+            entity=entity
+        )
+
 
 async def wait():
     await asyncio.sleep(random.uniform(WAIT_MIN, WAIT_MAX))
 
 
 class TestService:
-    __slots__ = ["response_repository", "telegram_service", "account", "client", "respondent", "await_answers",
-                 "histograms", "manager", "bot", "bot_client"]
+    __slots__ = ["response_repository", "telegram_service", "account", "client", "respondent", "awaited_scenarios",
+                 "histograms", "manager", "bot", "bot_client", "message_queue", "processing", "scenarios"]
 
     def __init__(self, telegram_service: TelegramService, response_repository: ResponseRepository, account: str,
                  bot: str):
@@ -37,53 +85,72 @@ class TestService:
         self.client = None
         self.bot_client = None
 
-        self.await_answers = {}
+        self.awaited_scenarios = {}
+        self.scenarios: Dict[int, Scenario] = {}
         self.histograms = {}
         self.manager = None
 
-    async def advance_scenario(self, awaited_answer, recipient):
-        await wait()
-        scenario = awaited_answer["scenario"]
-        message = scenario[0]
-        self.await_answers[recipient.user_id] = {
-            "name": awaited_answer["name"],
-            "message": message,
-            "timestamp": time(),
-            "scenario": scenario[1:],
-            "erred": False
-        }
+        self.message_queue = asyncio.Queue()
+        self.processing = False
+
+    async def start(self):
+        if not self.processing:
+            self.processing = True
+            return asyncio.create_task(self.process_queue)
+
+    def stop(self):
+        self.processing = False
+
+    async def process_queue(self):
+        while self.processing:
+            scenario = await self.message_queue.get()
+            await self.process_step(scenario)
+            self.message_queue.task_done()
+
+    async def process_step(self, scenario: Scenario):
+        if scenario.erred:
+            await self.repeat_message(scenario.message, scenario.entity)
+        else:
+            recipient_id = scenario.entity.user_id
+            await self.advance_scenario(scenario)
+            count = 0
+            worth_waiting = True
+            while worth_waiting:
+                await asyncio.sleep(1)
+                count += 1
+                worth_waiting = recipient_id in self.awaited_scenarios and self.awaited_scenarios[
+                    recipient_id].message == scenario.next_messages[0] and count < 5
+
+    async def advance_scenario(self, scenario: Scenario):
+        message = scenario.next_messages[0]
+        recipient = scenario.entity
+        self.awaited_scenarios[recipient.user_id] = Scenario(
+            name=scenario.name,
+            message=message,
+            timestamp=time(),
+            next_messages=scenario.next_messages[1:],
+            erred=False,
+            entity=recipient
+        )
         try:
             await self.telegram_service.send_message(self.client, recipient, message)
         except ValueError as exc:
             logging.warning(exc)
-            logging.warning(f"Could not find PeerUser for {recipient}:{awaited_answer['name']}")
-            del self.await_answers[recipient]
-            await self.send_alert(
-                f"Не нашел бота для {recipient}:{awaited_answer['name']}",
-                important=True
-            )
+            logging.warning(f"Could not find PeerUser for {recipient}:{scenario.name}")
+            del self.awaited_scenarios[recipient.user_id]
+            await self.send_alert(f"Не нашел бота для {recipient}:{scenario.name}")
 
     async def repeat_message(self, message, recipient):
-        await wait()
         await self.telegram_service.send_message(self.client, recipient, message)
 
-    async def send_alert(self, message, important=False):
-        if not important:
-            await wait()
-
-        await self.telegram_service.send_message(
-            self.bot_client,
-            self.manager,
-            message)
+    async def send_alert(self, message):
+        await self.telegram_service.send_message(self.bot_client, self.manager, message)
 
     async def save(self, response_time, name):
         try:
             self.response_repository.save(Response(None, response_time, name))
         except SQLAlchemyError as exc:
-            await self.send_alert(
-                f"Не удалось сохранить ответ для бота {name} в базу данных. Ошибка {str(exc)}.",
-                important=True
-            )
+            await self.send_alert(f"Не удалось сохранить ответ для бота {name} в базу данных. Ошибка {str(exc)}.")
 
     async def init_client(self):
         self.client = await self.telegram_service.login(self.account)
@@ -94,77 +161,52 @@ class TestService:
         async def handler(event):
             end = time()
             try:
-                recipient_id = event.message.input_sender.user_id
-                if recipient_id in self.await_answers:
-                    awaited_answer = self.await_answers.pop(recipient_id)
-                    scenario = awaited_answer["scenario"]
-                    response_time = end - awaited_answer["timestamp"]
-                    name = awaited_answer["name"]
+                sender_id = event.message.input_sender.user_id
+                if sender_id in self.awaited_scenarios:
+                    scenario = self.awaited_scenarios.pop(sender_id)
+                    response_time = end - scenario.timestamp
+                    name = scenario.name
                     self.histograms[name].observe(response_time)
 
                     await self.save(response_time, name)
                     logging.info(f'Time on response for {name}: {response_time}')
 
                     if response_time > Constants.TEST_TIMEOUT:
-                        await self.send_alert(f'''
-                            Время отклика от бота {name}
-                            на сообщение {awaited_answer["message"]}: 
-                            {response_time:.2f} секунд
-                        ''')
+                        await self.send_alert(
+                            TIMEOUT_ALERT.format(name=name, message=scenario.message, response_time=response_time)
+                        )
 
                     if len(scenario) > 0:
-                        recipient = awaited_answer["entity"]
-                        await self.advance_scenario(awaited_answer, recipient)
+                        await self.message_queue.put(scenario)
                     else:
-                        self.await_answers.pop(recipient_id)
+                        await self.message_queue.put(self.scenarios[scenario.entity.user_id])
             except Exception as exc:
                 logging.info(exc)
 
-    async def test_bot(self, scenario: List[str], name: str, recipient: telethon.types.InputPeerUser):
+    async def add_scenario(self, scenario_list: List[str], name: str, recipient: telethon.types.InputPeerUser):
         if name not in self.histograms:
             self.histograms[name] = Histogram(f"{name}_request_latency_seconds",
-                                              f"Latency between sendning a message and getting a response for {name}")
-        if recipient.user_id not in self.await_answers:
-            start = {
-                "name": name,
-                "message": None,
-                "timestamp": time(),
-                "scenario": scenario,
-                "erred": False,
-                "entity": recipient
-            }
-            await self.advance_scenario(start, recipient)
-        elif self.await_answers[recipient.user_id]["erred"]:
-            start = self.await_answers[recipient.user_id]
-            logging.info(f'Resending message {start["message"]} to {start["name"]}')
-            message = start["message"]
-            await self.repeat_message(message, recipient)
+                                              f"Latency between sending a message and getting a response for {name}")
+        if recipient.user_id not in self.scenarios:
+            scenario = Scenario.create(name, scenario_list, recipient)
+            self.scenarios[recipient.user_id] = scenario
+            await self.message_queue.put((scenario, recipient))
 
     async def start_cleanup(self):
-        answers_to_clean = self.await_answers.copy()
+        answers_to_clean = self.awaited_scenarios.copy()
         messages = []
         for recipient in answers_to_clean:
-            response_time = time() - self.await_answers[recipient]["timestamp"]
+            scenario = self.awaited_scenarios[recipient]
+            response_time = time() - scenario.timestamp
             if response_time > Constants.ERROR_TIMEOUT:
-                awaited_answer = self.await_answers[recipient]
-                await self.save(None, awaited_answer["name"])
-                if not awaited_answer["erred"]:
-                    awaited_answer["erred"] = True
-                    messages.append(
-                        f'''
-Бот {awaited_answer["name"]} не откликнулся 
-на сообщение {awaited_answer["message"]} за 
-{response_time:.2f} секунд
-                        '''
-                    )
-                else:
-                    messages.append(
-                        f'''
-Бот {awaited_answer["name"]} продолжает не откликаться 
-на сообщение {awaited_answer["message"]}: 
-{response_time:.2f} секунд
-                        '''
-                    )
+                scenario = self.awaited_scenarios[recipient]
+                alert = ERROR_ALERT if not scenario.erred else ERROR_CONTINUE_ALERT
+                messages.append(alert.format(
+                    name=scenario.name,
+                    message=scenario.message,
+                    response_time=response_time
+                ))
+                await self.message_queue.put((scenario, recipient))
         if len(messages) > 0:
             logging.warning("Sending alerts")
             await self.send_alert(
@@ -175,12 +217,11 @@ class TestService:
         statistics = self.response_repository.statistics()
         message = []
         for bot in statistics:
-            text = f'''
-Среднее время отклика {bot["name"]}: {bot["average"]:.2f} за {bot["total"]} запросов из них: 
-{bot["first_bucket"]}% <1 секунды, 
-{bot["second_bucket"]}% от 1 до 5 секунд, 
-{bot["third_bucket"]}% >5 секунд
-                '''.strip()
+            text = STATISTICS_TEMPLATE.format(
+                name=bot["name"], average=bot["average"], total=bot["total"],
+                first_bucket=bot["first_bucket"], second_bucket=bot["second_bucket"],
+                third_bucket=bot["third_bucket"]
+            ).strip()
             message.append(text)
             if sum(map(len, message)) > 2000:
                 await self.send_alert('\n'.join(message))

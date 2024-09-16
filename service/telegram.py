@@ -4,6 +4,7 @@ import time
 import random
 
 from telethon import hints
+from telethon.tl.types import InputPeerUser
 
 import factory.telegram as telegram_factory
 from service.phone import PhoneService
@@ -30,7 +31,7 @@ class TelegramService:
         logging.debug(f"Logged in: {me}")
         return client
 
-    async def send_message(self, client, recipient: str, text: str):
+    async def send_message(self, client, recipient: str | InputPeerUser, text: str):
         await client.send_message(recipient, text)
 
     async def get_bot_name(self, api: str) -> hints.Entity:
