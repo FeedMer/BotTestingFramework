@@ -104,6 +104,7 @@ class TestService:
     async def process_queue(self):
         while self.processing:
             scenario = await self.message_queue.get()
+            logging.info(f"Processing scenario: {scenario.name}")
             await self.process_step(scenario)
             self.message_queue.task_done()
 
@@ -134,6 +135,7 @@ class TestService:
         )
         try:
             await self.telegram_service.send_message(self.client, recipient, message)
+            logging.info(f"Sent {message} to {scenario.name}")
         except ValueError as exc:
             logging.warning(exc)
             logging.warning(f"Could not find PeerUser for {recipient}:{scenario.name}")
