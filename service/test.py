@@ -102,7 +102,9 @@ class TestService:
         self.processing = False
 
     async def process_queue(self):
+        logging.info("Started processing")
         while self.processing:
+            logging.info("Awaiting scenario")
             scenario = await self.message_queue.get()
             logging.info(f"Processing scenario: {scenario.name}")
             await self.process_step(scenario)
