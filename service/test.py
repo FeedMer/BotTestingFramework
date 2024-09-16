@@ -112,6 +112,7 @@ class TestService:
             logging.info(f"Processing scenario: {scenario.name}")
             await self.process_step(scenario)
             self.message_queue.task_done()
+            await asyncio.sleep(3)
 
     async def process_step(self, scenario: Scenario):
         if scenario.erred:
@@ -125,7 +126,7 @@ class TestService:
                 await asyncio.sleep(1)
                 count += 1
                 worth_waiting = recipient_id in self.awaited_scenarios and self.awaited_scenarios[
-                    recipient_id].message == scenario.next_messages[0] and count < 5
+                    recipient_id].message == scenario.next_messages[0] and count < 10
 
     async def advance_scenario(self, scenario: Scenario):
         message = scenario.next_messages[0]
