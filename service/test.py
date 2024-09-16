@@ -208,6 +208,7 @@ class TestService:
             if response_time > Constants.ERROR_TIMEOUT:
                 scenario = self.awaited_scenarios[recipient]
                 alert = ERROR_ALERT if not scenario.erred else ERROR_CONTINUE_ALERT
+                scenario.erred = True
                 messages.append(alert.format(
                     name=scenario.name,
                     message=scenario.message,
