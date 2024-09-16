@@ -97,6 +97,8 @@ class TestService:
         if not self.processing:
             self.processing = True
             return asyncio.create_task(self.process_queue())
+        else:
+            logging.info("Tests have already started")
 
     def stop(self):
         self.processing = False
