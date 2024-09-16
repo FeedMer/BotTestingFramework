@@ -197,7 +197,7 @@ class TestService:
         if recipient.user_id not in self.scenarios:
             scenario = Scenario.create(name, scenario_list, recipient)
             self.scenarios[recipient.user_id] = scenario
-            await self.message_queue.put((scenario, recipient))
+            await self.message_queue.put(scenario)
 
     async def start_cleanup(self):
         answers_to_clean = self.awaited_scenarios.copy()
@@ -213,7 +213,7 @@ class TestService:
                     message=scenario.message,
                     response_time=response_time
                 ))
-                await self.message_queue.put((scenario, recipient))
+                await self.message_queue.put(scenario)
         if len(messages) > 0:
             logging.warning("Sending alerts")
             await self.send_alert(
