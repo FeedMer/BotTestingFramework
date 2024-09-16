@@ -183,7 +183,7 @@ class TestService:
                             TIMEOUT_ALERT.format(name=name, message=scenario.message, response_time=response_time)
                         )
 
-                    if len(scenario) > 0:
+                    if len(scenario.next_messages) > 0:
                         await self.message_queue.put(scenario)
                     else:
                         await self.message_queue.put(self.scenarios[scenario.entity.user_id])
