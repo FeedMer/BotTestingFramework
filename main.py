@@ -27,7 +27,7 @@ async def schedule():
     bots = ServiceFactory.get().bot
     telegram = ServiceFactory.get().telegram
     await test.init_client()
-    run = test.client.run_until_disconnected()
+    run_client = test.client.run_until_disconnected()
     logging.debug("Preparing scheduling job")
     scheduler = AsyncIOScheduler()
     logging.debug("Starting schedule")
@@ -37,6 +37,7 @@ async def schedule():
     scheduler.add_job(test.start_cleanup, cleanup_interval)
     scheduler.add_job(test.send_statistics, cron_stat)
     scheduler.start()
+    run_tests = test.start()
     with open("resources/scenarios.json", "rb") as f:
         data = json.load(f)
         test.manager = await test.bot_client.get_entity(data["manager"])
@@ -49,7 +50,7 @@ async def schedule():
             await test.add_scenario(
                 scenario, name, await test.client.get_input_entity(name)
             )
-    await asyncio.gather(run, test.start())
+    await asyncio.gather(run_client, run_tests)
 
 
 async def main():
