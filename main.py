@@ -24,6 +24,7 @@ async def schedule():
     telegram = ServiceFactory.get().telegram
     await test.init_client()
     run_client = test.client.run_until_disconnected()
+
     logging.debug("Preparing scheduling job")
     scheduler = AsyncIOScheduler()
     logging.debug("Starting schedule")

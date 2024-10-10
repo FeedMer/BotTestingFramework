@@ -112,7 +112,7 @@ class TestService:
             logging.info(f"Processing scenario: {scenario.name}")
             await self.process_step(scenario)
             self.message_queue.task_done()
-            await asyncio.sleep(3)
+            await asyncio.sleep(15)
 
     async def process_step(self, scenario: Scenario):
         if scenario.erred:
@@ -162,7 +162,6 @@ class TestService:
 
     async def init_client(self):
         self.client = await self.telegram_service.login(self.account)
-        logging.debug(f"API KEY for bot: {self.bot}")
         self.bot_client = await self.telegram_service.login_bot(self.bot)
 
         @self.client.on(events.NewMessage(incoming=True))
