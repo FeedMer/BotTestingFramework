@@ -1,10 +1,7 @@
-import logging
 import os
-import configparser
 
 
 class Constants:
-
     TEST_TIMEOUT = int(os.environ.get("TEST_TIMEOUT"))
     ERROR_TIMEOUT = int(os.environ.get("ERROR_TIMEOUT"))
     TEST_INTERVAL = int(os.environ.get("TEST_INTERVAL"))
@@ -15,4 +12,3 @@ class Constants:
     API_KEY_BOT = os.environ.get("API_KEY_BOT")
     LOG_DB_URL = os.environ.get("LOG_DB_URL")
     FEEDMER_DB_URL = os.environ.get("FEEDMER_DB_URL")
-

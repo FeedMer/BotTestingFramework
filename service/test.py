@@ -126,7 +126,7 @@ class TestService:
                 await asyncio.sleep(1)
                 count += 1
                 worth_waiting = recipient_id in self.awaited_scenarios and self.awaited_scenarios[
-                    recipient_id].message == scenario.next_messages[0] and count < 10
+                    recipient_id].message == scenario.next_messages[0] and count < Constants.TEST_INTERVAL
 
     async def advance_scenario(self, scenario: Scenario):
         message = scenario.next_messages[0]

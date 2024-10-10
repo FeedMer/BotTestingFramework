@@ -1,16 +1,12 @@
 import asyncio
-import logging
 import json
-import random
-from time import time
-import asyncio
-from datetime import datetime
-from pytz import timezone
+import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from prometheus_client import start_http_server
+from pytz import timezone
 
 from config.constants import Constants
 from factory.service import ServiceFactory
@@ -31,7 +27,6 @@ async def schedule():
     logging.debug("Preparing scheduling job")
     scheduler = AsyncIOScheduler()
     logging.debug("Starting schedule")
-    test_interval = IntervalTrigger(seconds=Constants.TEST_INTERVAL)
     cleanup_interval = IntervalTrigger(seconds=Constants.CLEANUP_INTERVAL)
     cron_stat = CronTrigger(hour=21, timezone=timezone("Europe/Samara"))
     scheduler.add_job(test.start_cleanup, cleanup_interval)
